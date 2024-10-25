@@ -26,13 +26,13 @@ import okhttp3.Response;
  * any time.
  */
 public final class OkHttp3Singletons {
-    private static final Interceptor NOOP_INTERCEPTOR = (chain -> chain.proceed(chain.request()));
+    private static final Interceptor NOOP_INTERCEPTOR = chain -> chain.proceed(chain.request());
     public static Interceptor CONNECTION_ERROR_INTERCEPTOR = NOOP_INTERCEPTOR;
     public static Interceptor TRACING_INTERCEPTOR = NOOP_INTERCEPTOR;
 
     public static void configure(
             OkHttpInstrumentation instrumentation, OpenTelemetry openTelemetry) {
-        Instrumenter<Request, Response> instrumenter =
+        Instrumenter<Interceptor.Chain, Response> instrumenter =
                 OkHttpClientInstrumenterBuilderFactory.create(openTelemetry)
                         .setCapturedRequestHeaders(instrumentation.getCapturedRequestHeaders())
                         .setCapturedResponseHeaders(instrumentation.getCapturedResponseHeaders())

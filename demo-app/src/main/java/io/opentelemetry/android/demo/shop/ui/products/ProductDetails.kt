@@ -21,8 +21,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import io.opentelemetry.android.demo.shop.ui.cart.CartViewModel
 import io.opentelemetry.android.demo.shop.ui.components.UpPressButton
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.zIndex
 import io.opentelemetry.android.demo.shop.clients.ProductCatalogClient
 import io.opentelemetry.android.demo.shop.clients.RecommendationService
+import io.opentelemetry.android.demo.shop.ui.components.SlowCometAnimation
+import io.opentelemetry.android.demo.shop.ui.components.ConfirmPopup
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 @Composable
 fun ProductDetails(
@@ -35,6 +40,8 @@ fun ProductDetails(
     val imageLoader = ImageLoader(context)
     val sourceProductImage = imageLoader.load(product.picture)
     var quantity by remember { mutableIntStateOf(1) }
+
+    var slowRender by remember { mutableStateOf(false) }
 
     val productsClient = ProductCatalogClient(context)
     val recommendationService = remember { RecommendationService(productsClient, cartViewModel) }
@@ -83,14 +90,11 @@ fun ProductDetails(
             Spacer(modifier = Modifier.height(32.dp))
             QuantityChooser(quantity = quantity, onQuantityChange = { quantity = it })
             Spacer(modifier = Modifier.height(16.dp))
-            Button(
-                onClick = { cartViewModel.addProduct(product, quantity) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-            ) {
-                Text(text = "Add to Cart")
-            }
+            AddToCartButton(
+                cartViewModel = cartViewModel,
+                product = product,
+                quantity = quantity,
+                onSlowRenderChange = { slowRender = it })
             Spacer(modifier = Modifier.height(32.dp))
             RecommendedSection(recommendedProducts = recommendedProducts, onProductClick = onProductClick)
         }
@@ -101,7 +105,102 @@ fun ProductDetails(
                 .align(Alignment.TopStart)
                 .padding(8.dp)
         )
+        if (slowRender) {
+            SlowCometAnimation(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(1f)
+            )
+        }
     }
 }
 
+@Composable
+fun AddToCartButton(
+    cartViewModel: CartViewModel,
+    product: Product,
+    quantity: Int,
+    onSlowRenderChange: (Boolean) -> Unit
+) {
+    var showCrashPopup by remember { mutableStateOf(false) }
+    var showANRPopup by remember { mutableStateOf(false) }
 
+    Button(
+        onClick = {
+            if (product.id == "OLJCESPC7Z") {
+                if (quantity == 10) showCrashPopup = true
+                if (quantity == 9) showANRPopup = true
+            } else {
+                if (product.id == "HQTGWGPNH4") {
+                    onSlowRenderChange(true)
+                }
+                cartViewModel.addProduct(product, quantity)
+            }
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+    ) {
+        Text(text = "Add to Cart")
+    }
+
+    if (showCrashPopup) {
+        ConfirmPopup(
+            text = "This will crash the app",
+            onConfirm = {
+                multiThreadCrashing()
+            },
+            onDismiss = {
+                showCrashPopup = false
+            }
+        )
+    }
+    if (showANRPopup) {
+        ConfirmPopup(
+            text = "This will freeze the app",
+            onConfirm = {
+                appFreezing()
+            },
+            onDismiss = {
+                showCrashPopup = false
+            }
+        )
+    }
+}
+
+fun multiThreadCrashing(numThreads : Int = 4) {
+    val latch = CountDownLatch(1)
+
+    for (i in 0..numThreads) {
+        val thread = Thread {
+            try {
+                if (latch.await(10, TimeUnit.SECONDS)) {
+                    throw IllegalStateException("Failure from thread ${Thread.currentThread().name}")
+                }
+            } catch (e: InterruptedException) {
+                throw RuntimeException(e)
+            }
+        }
+        thread.name = "crash-thread-$i"
+        thread.start()
+    }
+
+    try {
+        Thread.sleep(100)
+    } catch (e: InterruptedException) {
+        Thread.currentThread().interrupt()
+        return
+    }
+    latch.countDown()
+}
+
+fun appFreezing(){
+    try {
+        for (i in 0 .. 20) {
+            Thread.sleep(1_000)
+        }
+    } catch (e: InterruptedException) {
+        e.printStackTrace()
+    }
+
+}

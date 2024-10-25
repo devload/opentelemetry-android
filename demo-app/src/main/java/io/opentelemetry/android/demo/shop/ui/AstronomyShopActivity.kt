@@ -6,7 +6,6 @@
 package io.opentelemetry.android.demo.shop.ui
 
 import android.app.Activity
-import android.content.Intent
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
@@ -23,7 +22,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import io.opentelemetry.android.demo.MainActivity
 import io.opentelemetry.android.demo.shop.clients.ProductCatalogClient
 import io.opentelemetry.android.demo.theme.DemoAppTheme
 import io.opentelemetry.android.demo.shop.ui.cart.CartScreen
@@ -31,6 +29,9 @@ import io.opentelemetry.android.demo.shop.ui.products.ProductDetails
 import io.opentelemetry.android.demo.shop.ui.products.ProductList
 import io.opentelemetry.android.demo.shop.ui.cart.CartViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
+import io.opentelemetry.android.demo.OtelDemoApplication
+import io.opentelemetry.android.demo.shop.ui.cart.CheckoutConfirmationScreen
+import io.opentelemetry.android.demo.shop.ui.cart.CheckoutInfoViewModel
 import io.opentelemetry.android.demo.shop.ui.cart.InfoScreen
 
 class AstronomyShopActivity : AppCompatActivity() {
@@ -49,6 +50,8 @@ fun AstronomyShopScreen() {
     val context = LocalContext.current
     val astronomyShopNavController = rememberAstronomyShopNavController()
     val cartViewModel: CartViewModel = viewModel()
+    val checkoutInfoViewModel: CheckoutInfoViewModel = viewModel()
+
     DemoAppTheme {
         Surface(
             modifier = Modifier.fillMaxSize(),
@@ -66,8 +69,6 @@ fun AstronomyShopScreen() {
                             }
                         },
                         onExitClicked = {
-                            val intent = Intent(context, MainActivity::class.java)
-                            context.startActivity(intent)
                             (context as? Activity)?.finish()
                         }
                     )
@@ -102,10 +103,45 @@ fun AstronomyShopScreen() {
                         }
                     }
                     composable(MainDestinations.CHECKOUT_INFO_ROUTE) {
-                        InfoScreen(upPress = {astronomyShopNavController.upPress()})
+                        InfoScreen(
+                            onPlaceOrderClick = {instrumentedPlaceOrder(
+                                astronomyShopNavController = astronomyShopNavController,
+                                cartViewModel = cartViewModel,
+                                checkoutInfoViewModel = checkoutInfoViewModel
+                            )},
+                            upPress = {astronomyShopNavController.upPress()},
+                            checkoutInfoViewModel = checkoutInfoViewModel
+                        )
+                    }
+                    composable(MainDestinations.CHECKOUT_CONFIRMATION_ROUTE){
+                        CheckoutConfirmationScreen(
+                            cartViewModel = cartViewModel,
+                            checkoutInfoViewModel = checkoutInfoViewModel
+                        )
                     }
                 }
             }
         }
     }
 }
+
+private fun instrumentedPlaceOrder(
+    astronomyShopNavController: InstrumentedAstronomyShopNavController,
+    cartViewModel: CartViewModel,
+    checkoutInfoViewModel: CheckoutInfoViewModel
+){
+    generateOrderPlacedEvent(cartViewModel, checkoutInfoViewModel)
+    astronomyShopNavController.navigateToCheckoutConfirmation()
+}
+
+private fun generateOrderPlacedEvent(
+    cartViewModel: CartViewModel,
+    checkoutInfoViewModel: CheckoutInfoViewModel
+) {
+    val eventBuilder = OtelDemoApplication.eventBuilder("otel.demo.app", "order.placed")
+    eventBuilder
+        .put("order.total.value", cartViewModel.getTotalPrice())
+        .put("buyer.state", checkoutInfoViewModel.shippingInfo.state)
+        .emit()
+}
+

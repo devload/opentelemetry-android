@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import androidx.compose.material3.*
+import io.opentelemetry.android.demo.OtelDemoApplication
 
 
 sealed class BottomNavItem(val route: String, val icon: ImageVector, val label: String) {
@@ -25,13 +26,14 @@ object MainDestinations {
     const val PRODUCT_DETAIL_ROUTE = "product"
     const val PRODUCT_ID_KEY = "productId"
     const val CHECKOUT_INFO_ROUTE = "checkout-info"
+    const val CHECKOUT_CONFIRMATION_ROUTE = "checkout-confirmation"
 }
 
 @Composable
 fun rememberAstronomyShopNavController(navController: NavHostController = rememberNavController())
-: AstronomyShopNavController = remember(navController)
+        : InstrumentedAstronomyShopNavController = remember(navController)
 {
-    AstronomyShopNavController(navController)
+    InstrumentedAstronomyShopNavController(AstronomyShopNavController(navController))
 }
 
 @Stable
@@ -53,6 +55,55 @@ class AstronomyShopNavController(
         navController.navigate(MainDestinations.CHECKOUT_INFO_ROUTE)
     }
 
+    fun navigateToCheckoutConfirmation(){
+        navController.navigate(MainDestinations.CHECKOUT_CONFIRMATION_ROUTE)
+    }
+}
+
+class InstrumentedAstronomyShopNavController(
+    private val delegate : AstronomyShopNavController
+){
+    val navController: NavHostController
+        get() = delegate.navController
+
+    val currentRoute: String?
+        get() = delegate.currentRoute
+
+    fun upPress() {
+        delegate.upPress()
+    }
+
+    fun navigateToProductDetail(productId: String) {
+        delegate.navigateToProductDetail(productId)
+        generateNavigationEvent(
+            eventName = "navigate.to.product.details",
+            payload = mapOf("product.id" to productId)
+        )
+    }
+
+    fun navigateToCheckoutInfo() {
+        delegate.navigateToCheckoutInfo()
+        generateNavigationEvent(
+            eventName = "navigate.to.checkout.info",
+            payload = emptyMap()
+        )
+    }
+
+    fun navigateToCheckoutConfirmation() {
+        delegate.navigateToCheckoutConfirmation()
+        generateNavigationEvent(
+            eventName = "navigate.to.checkout.confirmation",
+            payload = emptyMap()
+        )
+    }
+
+    private fun generateNavigationEvent(eventName: String, payload: Map<String, String>) {
+        val eventBuilder = OtelDemoApplication.eventBuilder("otel.demo.app.navigation", eventName)
+        payload.forEach { (key, value) ->
+            eventBuilder.put(key, value)
+        }
+        eventBuilder.emit()
+    }
 }
 
 @Composable

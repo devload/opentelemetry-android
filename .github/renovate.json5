@@ -6,6 +6,7 @@
   "packageRules": [
     {
       "matchPackageNames": [
+        "io.opentelemetry.contrib:opentelemetry-disk-buffering",
         "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom-alpha",
         "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api-incubator",
         "io.opentelemetry.instrumentation:opentelemetry-okhttp-3.0"
@@ -16,6 +17,21 @@
       // stable version of opentelemetry-instrumentation-bom-alpha so this logic doesn't apply
       "ignoreUnstable": false,
       "allowedVersions": "!/\\-SNAPSHOT$/"
+    },
+    {
+      // Group updates from otel java core repo
+      "matchPackageNames": [
+        "io.opentelemetry:opentelemetry-api",
+        "io.opentelemetry:opentelemetry-api-incubator",
+        "io.opentelemetry:opentelemetry-context",
+        "io.opentelemetry:opentelemetry-exporter-logging",
+        "io.opentelemetry:opentelemetry-exporter-otlp",
+        "io.opentelemetry:opentelemetry-sdk",
+        "io.opentelemetry:opentelemetry-sdk-testing",
+        "io.opentelemetry:opentelemetry-sdk-extension-incubator"
+      ],
+      "ignoreUnstable": false,
+      "groupName": "otel-core"
     },
     {
       // navigation-fragment 2.7.0 and above require android api 34+, which we are not ready for
